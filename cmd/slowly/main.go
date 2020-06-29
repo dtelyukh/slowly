@@ -35,7 +35,10 @@ func main() {
 
 	defer handleExit(logger)
 
-	handler := api.NewHandler(logger)
+	handler := api.NewHandler(
+		logger,
+		&api.Config{MaxTimeout: p.MaxTimeoutInMsec},
+	)
 
 	server := server.NewServer(
 		handler,

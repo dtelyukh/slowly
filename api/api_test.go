@@ -14,7 +14,10 @@ import (
 func TestSlowBadRequestNoData(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
-	handler := NewHandler(logger)
+	handler := NewHandler(
+		logger,
+		&Config{MaxTimeout: 100},
+	)
 
 	req := httptest.NewRequest(
 		"POST",
@@ -31,12 +34,15 @@ func TestSlowBadRequestNoData(t *testing.T) {
 func TestSlowBadRequestThrottle(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
-	handler := NewHandler(logger)
+	handler := NewHandler(
+		logger,
+		&Config{MaxTimeout: 100},
+	)
 
 	req := httptest.NewRequest(
 		"POST",
 		"http://example.com/api/slow",
-		strings.NewReader(`{"timeout":5001}`))
+		strings.NewReader(`{"timeout":101}`))
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	resp := w.Result()
@@ -48,7 +54,10 @@ func TestSlowBadRequestThrottle(t *testing.T) {
 func TestSlowSuccess(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
-	handler := NewHandler(logger)
+	handler := NewHandler(
+		logger,
+		&Config{MaxTimeout: 200},
+	)
 
 	req := httptest.NewRequest(
 		"POST",

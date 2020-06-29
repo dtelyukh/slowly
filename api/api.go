@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -13,10 +13,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const MAX_TIMEOUT uint = 5000
+type Config struct {
+	MaxTimeout uint
+}
 
 type handler struct {
-	log logger.Logger
+	config *Config
+	log    logger.Logger
 }
 
 type Handler interface {
@@ -34,8 +37,11 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	router.ServeHTTP(w, r)
 }
 
-func NewHandler(log logger.Logger) Handler {
-	return &handler{log}
+func NewHandler(log logger.Logger, cfg *Config) Handler {
+	if cfg.MaxTimeout == 0 {
+		panic("Invalid MaxTimeout value")
+	}
+	return &handler{config: cfg, log: log}
 }
 
 func (h *handler) slow() http.HandlerFunc {
@@ -55,26 +61,27 @@ func (h *handler) slow() http.HandlerFunc {
 			return
 		}
 
-		time.Sleep(time.Millisecond * time.Duration(req.Timeout))
+		select {
+		case <-time.After(time.Millisecond * time.Duration(req.Timeout)):
+			h.sendJsonResponse(w, r, http.StatusOK, err)
+			return
+		case <-r.Context().Done():
+			return
+		}
 
-		h.sendJsonResponse(w, r, http.StatusOK, err)
 	}
 }
 
 func (h *handler) throttle(next http.HandlerFunc) http.HandlerFunc {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		content, _ := ioutil.ReadAll(r.Body)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(h.config.MaxTimeout)*time.Millisecond)
+		defer cancel()
 
-		req := SlowRequest{}
-		json.Unmarshal(content, &req)
-		if req.Timeout > MAX_TIMEOUT {
-			r.Body.Close()
+		next.ServeHTTP(w, r.WithContext(ctx))
+
+		if len(w.Header().Get("Content-type")) == 0 {
 			h.sendJsonResponse(w, r, http.StatusBadRequest, errors.New("timeout too long"))
-			return
 		}
-
-		r.Body = ioutil.NopCloser(bytes.NewBuffer(content))
-		next.ServeHTTP(w, r)
 	}
 
 	return http.HandlerFunc(fn)
