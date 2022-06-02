@@ -1,9 +1,9 @@
-Сборка и запуск в ОС Linux
+Build and run on Linux OS
 
 	make build
 	make run
 
-Проверка работоспособности
+Usage
 
 	curl -i \
     -H "Accept: application/json" \
@@ -12,8 +12,8 @@
     -d '{"timeout":1000}' \
     http://localhost:8080/api/slow
 
-Прогон тестов
+Test run
 
 	make test
 
-Параметры приложения по умолчанию в .env.dist переопределяются в .env
+The default application parameters in .env.dist are overridden in .env
